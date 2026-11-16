@@ -93,6 +93,7 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 .quick{display:flex;justify-content:flex-end}
 .link{font:600 .88rem var(--body);background:none;border:0;color:var(--accent);cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:3px}
 .ncbox{display:grid;gap:8px}
+.ios{background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:6px;padding:10px 12px;font-size:.92rem;display:grid;gap:4px;justify-items:start}
 .empty{background:var(--surface);border:1.5px dashed var(--line);border-radius:12px;padding:20px;text-align:center;color:var(--muted)}
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);border-top:1.5px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 .bar .wrap{padding-block:10px;display:grid;gap:8px}
@@ -174,6 +175,10 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 <main>
   <!-- ============ NOVA INSPEÇÃO ============ -->
   <div class="wrap" id="view-nova" role="tabpanel">
+    <div class="ios" id="ios" hidden>
+      <p style="margin:0"><b>Instale no iPhone:</b> no <b>Safari</b>, toque em <b>Compartilhar</b> <span aria-hidden="true">⬆️</span> e depois em <b>"Adicionar à Tela de Início"</b>. Se abriu pelo WhatsApp, escolha antes "Abrir no Safari".</p>
+      <button type="button" class="link" id="ios-x">Entendi</button>
+    </div>
     <div class="msg warn" id="pend" hidden></div>
 
     <section class="block">
@@ -608,6 +613,11 @@ let instEvt=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();instEvt=e;$("b-inst").hidden=false});
 window.addEventListener("appinstalled",()=>{instEvt=null;$("b-inst").hidden=true});
 $("b-inst").onclick=async()=>{if(!instEvt)return;instEvt.prompt();try{await instEvt.userChoice}catch(e){}instEvt=null;$("b-inst").hidden=true};
+
+(function(){const ua=navigator.userAgent;const ios=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  const inst=window.navigator.standalone||matchMedia("(display-mode: standalone)").matches;
+  if(ios&&!inst&&!lsGet("vaz-ios-ok",false))$("ios").hidden=false;
+  $("ios-x").onclick=()=>{$("ios").hidden=true;lsSet("vaz-ios-ok",true)}})();
 
 /* ---------- início ---------- */
 $("mode").textContent=API?"Conectando…":"Modo local";
