@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Controle de Vazamentos</title>
+<meta name="theme-color" content="#1f6b4f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<script>
+/* ================== CONFIGURAÇÃO ==================
+   Cole aqui a URL do App da Web do Google Apps Script (veja LEIA-ME.md).
+   Deixe vazio para usar o modo local (dados ficam só no aparelho). */
+window.CONFIG = {
+  API_URL: "",
+  CHAVE: ""   // opcional: mesmo valor de CHAVE no Code.gs
+};
+</script>
+<style>
+:root{
+  --bg:#eef2ef; --surface:#ffffff; --fg:#17231d; --muted:#5b6b62; --line:#d3ddd6;
+  --accent:#1f6b4f; --accent-fg:#ffffff; --accent-soft:#dcebe3;
+  --ok:#1f7a45; --ok-soft:#dff1e5; --nc:#b3261e; --nc-soft:#fbe3e0; --na:#5f6b73; --na-soft:#e6eaec;
+  --warn:#9a5b00; --warn-soft:#fcefd6;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1613; --surface:#18221d; --fg:#e4ece7; --muted:#9aaba1; --line:#2c3a33;
+  --accent:#4fb88a; --accent-fg:#06110c; --accent-soft:#1d3329;
+  --ok:#5cc98a; --ok-soft:#173523; --nc:#ff8a80; --nc-soft:#3a1a18; --na:#a7b3ba; --na-soft:#242c30;
+  --warn:#f0b54a; --warn-soft:#352914; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1613; --surface:#18221d; --fg:#e4ece7; --muted:#9aaba1; --line:#2c3a33;
+  --accent:#4fb88a; --accent-fg:#06110c; --accent-soft:#1d3329;
+  --ok:#5cc98a; --ok-soft:#173523; --nc:#ff8a80; --nc-soft:#3a1a18; --na:#a7b3ba; --na-soft:#242c30;
+  --warn:#f0b54a; --warn-soft:#352914; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-padding-top:120px}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.4;padding-bottom:env(safe-area-inset-bottom,0px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--accent)}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--accent);color:var(--accent-fg)}
+header.top .wrap{padding-block:12px 0;display:grid;gap:10px}
+.hrow{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+h1{font-family:var(--display);font-size:1.6rem;letter-spacing:.01em;margin:0;line-height:1.1}
+h1 small{display:block;font-family:var(--body);font-size:.8rem;font-weight:500;opacity:.85;letter-spacing:.04em;text-transform:uppercase}
+.mode{font:600 .72rem var(--body);letter-spacing:.05em;text-transform:uppercase;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.18);white-space:nowrap}
+.tabs{display:flex;gap:4px}
+.tabs button{flex:1;font:600 .95rem var(--body);padding:10px 4px;border:0;border-radius:8px 8px 0 0;background:transparent;color:inherit;opacity:.8;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--bg);color:var(--fg);opacity:1}
+main .wrap{padding-block:16px 160px;display:grid;gap:20px}
+main .wrap.nobar{padding-bottom:40px}
+section.block{display:grid;gap:12px}
+h2{font-family:var(--display);font-size:1.25rem;margin:0;display:flex;align-items:baseline;gap:8px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:.85rem;color:var(--muted)}
+.field{display:grid;gap:6px}
+.field label,.lbl{font-size:.8rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+input[type=text],input[type=date],input[type=number],select,textarea{width:100%;font:500 1rem var(--body);color:var(--fg);background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:12px}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 52%,calc(100% - 12px) 52%;background-size:6px 6px;background-repeat:no-repeat;padding-right:32px}
+textarea{min-height:64px;resize:vertical}
+input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+.seg button,.equip button{font:600 1rem var(--body);padding:12px 6px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);border-radius:10px;cursor:pointer;min-height:48px}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.equip{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.equip button{padding:16px 8px;font-family:var(--display);font-size:1.15rem}
+.equip button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.rule{background:var(--warn-soft);color:var(--fg);border-left:4px solid var(--warn);border-radius:6px;padding:10px 12px;font-size:.92rem}
+.items{display:grid;gap:8px}
+.item{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px}
+.item.st-C{border-color:var(--ok)} .item.st-NC{border-color:var(--nc);background:var(--nc-soft)} .item.st-NA{border-color:var(--na)}
+.item p{margin:0;display:flex;gap:10px}
+.item .code{font-family:var(--mono);font-size:.82rem;color:var(--muted);flex:none;padding-top:2px}
+.ans{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ans button{font:700 1rem var(--body);min-height:46px;border-radius:9px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.ans button[data-v="C"][aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.ans button[data-v="NC"][aria-pressed="true"]{background:var(--nc);border-color:var(--nc);color:var(--surface)}
+.ans button[data-v="NA"][aria-pressed="true"]{background:var(--na);border-color:var(--na);color:var(--surface)}
+.quick{display:flex;justify-content:flex-end}
+.link{font:600 .88rem var(--body);background:none;border:0;color:var(--accent);cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:3px}
+.ncbox{display:grid;gap:8px}
+.empty{background:var(--surface);border:1.5px dashed var(--line);border-radius:12px;padding:20px;text-align:center;color:var(--muted)}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);border-top:1.5px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.bar .wrap{padding-block:10px;display:grid;gap:8px}
+.prog{display:flex;justify-content:space-between;font-size:.9rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.prog b{color:var(--fg)}
+.track{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.track i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+.actions{display:grid;grid-template-columns:auto 1fr;gap:8px}
+.btn{font:700 1rem var(--body);min-height:50px;padding:0 16px;border-radius:10px;border:1.5px solid var(--accent);background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn.sm{min-height:44px;font-size:.95rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{font-size:.9rem;border-radius:8px;padding:8px 10px}
+.msg.err{background:var(--nc-soft);color:var(--nc)} .msg.ok{background:var(--ok-soft);color:var(--ok)} .msg.warn{background:var(--warn-soft);color:var(--fg)}
+.hist{display:grid;gap:8px}
+.card{background:var(--surface);border:1.5px solid var(--line);border-radius:12px}
+.card summary{list-style:none;cursor:pointer;padding:12px;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
+.card summary::-webkit-details-marker{display:none}
+.card .t{font-family:var(--display);font-size:1.15rem}
+.card .meta{grid-column:1/-1;font-size:.88rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.pill{font:700 .75rem var(--body);letter-spacing:.05em;text-transform:uppercase;padding:4px 8px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.nc{background:var(--nc-soft);color:var(--nc)} .pill.warn{background:var(--warn-soft);color:var(--warn)}
+.card .body{padding:0 12px 12px;display:grid;gap:8px;font-size:.92rem}
+.card .body ul{margin:0;padding-left:18px;display:grid;gap:6px}
+.mono{font-family:var(--mono)}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{font:600 .88rem var(--body);padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.toolbar .muted{font-size:.85rem;color:var(--muted)}
+/* Compilação */
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.kpi{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:2px}
+.kpi .v{font-family:var(--display);font-size:2rem;line-height:1;font-variant-numeric:tabular-nums}
+.kpi .k{font-size:.78rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.kpi.bad .v{color:var(--nc)}
+.panel{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px}
+.panel h3{font-family:var(--display);font-size:1.1rem;margin:0}
+.rank{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.rank li{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:.9rem;align-items:baseline}
+.rank .txt{min-width:0}
+.rank .txt .mono{font-size:.78rem;color:var(--muted);margin-right:4px}
+.rank .cnt{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.rank .b{grid-column:1/-1;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.rank .b i{display:block;height:100%;background:var(--nc);border-radius:3px}
+.rank.eq .b i{background:var(--accent)}
+.exp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.exp .btn{min-height:46px;font-size:.95rem}
+.exp .full{grid-column:1/-1}
+.note{font-size:.85rem;color:var(--muted);margin:0}
+.print-head{display:none}
+@media (max-width:380px){.row2{grid-template-columns:1fr}.exp{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.track i{transition:none}}
+@media print{
+  :root{--bg:#fff;--surface:#fff;--fg:#000;--line:#bbb;color-scheme:light}
+  header.top,.bar,#view-nova,#view-hist,.noprint{display:none!important}
+  #view-comp{display:grid!important;padding:0!important}
+  .print-head{display:block}
+  .panel,.kpi{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="hrow">
+      <h1><small>Área Ambiental · Inspeção diária</small>Controle de Vazamentos</h1>
+      <span class="mode" id="mode" title=""></span>
+    </div>
+    <div class="tabs" role="tablist">
+      <button id="tab-nova" role="tab" aria-selected="true" aria-controls="view-nova">Nova inspeção</button>
+      <button id="tab-hist" role="tab" aria-selected="false" aria-controls="view-hist">Histórico</button>
+      <button id="tab-comp" role="tab" aria-selected="false" aria-controls="view-comp">Compilar</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ============ NOVA INSPEÇÃO ============ -->
+  <div class="wrap" id="view-nova" role="tabpanel">
+    <div class="msg warn" id="pend" hidden></div>
+
+    <section class="block">
+      <h2>Identificação</h2>
+      <div class="row2">
+        <div class="field"><label for="f-data">Data</label><input type="date" id="f-data"></div>
+        <div class="field"><label for="f-hor">Horímetro (h)</label><input type="number" inputmode="decimal" step="0.1" id="f-hor" placeholder="0,0"></div>
+      </div>
+      <div class="field"><span class="lbl">Turno</span>
+        <div class="seg" id="f-turno"><button type="button" data-v="Manhã" aria-pressed="false">Manhã</button><button type="button" data-v="Tarde" aria-pressed="false">Tarde</button><button type="button" data-v="Noite" aria-pressed="false">Noite</button></div>
+      </div>
+      <div class="field"><label for="f-insp">Inspetor (nome / matrícula)</label><input type="text" id="f-insp" autocomplete="name"></div>
+      <div class="field"><label for="f-local">Local / Frente de serviço</label><input type="text" id="f-local"></div>
+      <div class="field"><span class="lbl">Equipamento</span>
+        <div class="equip" id="f-equip">
+          <button type="button" data-v="compressor" aria-pressed="false">Compressor</button>
+          <button type="button" data-v="gerador" aria-pressed="false">Gerador</button>
+          <button type="button" data-v="torre" aria-pressed="false">Torre de Iluminação</button>
+          <button type="button" data-v="pta" aria-pressed="false">PTA</button>
+        </div>
+      </div>
+      <div class="field"><label for="f-tag">TAG / Nº de patrimônio</label><input type="text" id="f-tag" class="mono" autocapitalize="characters"></div>
+      <div class="rule">Vazamento ativo (gotejamento contínuo ou poça): parar o equipamento, conter com manta ou cordão absorvente e comunicar Meio Ambiente e Manutenção.</div>
+    </section>
+
+    <section class="block">
+      <h2><span class="n">1</span>Itens gerais</h2>
+      <div class="quick"><button type="button" class="link" data-all="1">Marcar pendentes como C</button></div>
+      <div class="items" id="list-geral"></div>
+    </section>
+
+    <section class="block">
+      <h2><span class="n">2</span><span id="equip-title">Itens do equipamento</span></h2>
+      <div class="quick" id="quick2" hidden><button type="button" class="link" data-all="2">Marcar pendentes como C</button></div>
+      <div class="items" id="list-equip"><div class="empty">Escolha o equipamento acima para ver os itens específicos.</div></div>
+    </section>
+
+    <section class="block">
+      <h2><span class="n">3</span>Liberação</h2>
+      <div class="field"><span class="lbl">Equipamento liberado para operação?</span>
+        <div class="seg" id="f-lib"><button type="button" data-v="Sim" aria-pressed="false">Sim</button><button type="button" data-v="Não" aria-pressed="false">Não</button></div>
+      </div>
+      <div class="field"><label for="f-obs">Observações gerais</label><textarea id="f-obs"></textarea></div>
+    </section>
+  </div>
+
+  <!-- ============ HISTÓRICO ============ -->
+  <div class="wrap nobar" id="view-hist" role="tabpanel" hidden>
+    <section class="block">
+      <div class="toolbar">
+        <h2>Inspeções registradas</h2>
+        <button type="button" class="link" id="b-reload">Atualizar</button>
+      </div>
+      <div class="filters" id="h-filter">
+        <button type="button" data-v="" aria-pressed="true">Todos</button>
+        <button type="button" data-v="compressor" aria-pressed="false">Compressor</button>
+        <button type="button" data-v="gerador" aria-pressed="false">Gerador</button>
+        <button type="button" data-v="torre" aria-pressed="false">Torre</button>
+        <button type="button" data-v="pta" aria-pressed="false">PTA</button>
+        <button type="button" data-v="nc" aria-pressed="false">Só com NC</button>
+      </div>
+      <div class="hist" id="hist"><div class="empty">Carregando…</div></div>
+    </section>
+  </div>
+
+  <!-- ============ COMPILAR ============ -->
+  <div class="wrap nobar" id="view-comp" role="tabpanel" hidden>
+    <div class="print-head">
+      <h1 style="color:#000"><small>Área Ambiental · Relatório de inspeções</small>Controle de Vazamentos</h1>
+      <p id="print-range" style="margin:4px 0 0"></p>
+    </div>
+
+    <section class="block noprint">
+      <h2>Período e filtros</h2>
+      <div class="filters" id="c-preset">
+        <button type="button" data-v="0" aria-pressed="false">Hoje</button>
+        <button type="button" data-v="7" aria-pressed="false">7 dias</button>
+        <button type="button" data-v="30" aria-pressed="true">30 dias</button>
+        <button type="button" data-v="mes" aria-pressed="false">Este mês</button>
+        <button type="button" data-v="tudo" aria-pressed="false">Tudo</button>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="c-de">De</label><input type="date" id="c-de"></div>
+        <div class="field"><label for="c-ate">Até</label><input type="date" id="c-ate"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="c-eq">Equipamento</label>
+          <select id="c-eq"><option value="">Todos</option><option value="compressor">Compressor</option><option value="gerador">Gerador</option><option value="torre">Torre de Iluminação</option><option value="pta">PTA</option></select>
+        </div>
+        <div class="field"><label for="c-turno">Turno</label>
+          <select id="c-turno"><option value="">Todos</option><option>Manhã</option><option>Tarde</option><option>Noite</option></select>
+        </div>
+      </div>
+      <div class="field"><label for="c-busca">Inspetor, local ou TAG contém</label><input type="text" id="c-busca" placeholder="ex.: GER-012"></div>
+    </section>
+
+    <section class="block">
+      <div class="kpis">
+        <div class="kpi"><span class="v" id="k-tot">0</span><span class="k">Inspeções</span></div>
+        <div class="kpi"><span class="v" id="k-eq">0</span><span class="k">Equipamentos (TAG)</span></div>
+        <div class="kpi bad"><span class="v" id="k-comnc">0</span><span class="k">Com não conformidade</span></div>
+        <div class="kpi bad"><span class="v" id="k-bloq">0</span><span class="k">Bloqueados</span></div>
+      </div>
+      <div class="panel">
+        <h3>Itens com mais não conformidades</h3>
+        <ul class="rank" id="r-nc"></ul>
+      </div>
+      <div class="panel">
+        <h3>Inspeções por equipamento</h3>
+        <ul class="rank eq" id="r-eq"></ul>
+      </div>
+      <div class="panel" id="p-bloq">
+        <h3>Equipamentos bloqueados no período</h3>
+        <ul class="rank" id="r-bloq"></ul>
+      </div>
+    </section>
+
+    <section class="block noprint">
+      <h2>Exportar</h2>
+      <div class="exp">
+        <button class="btn" type="button" id="x-insp">Planilha de inspeções</button>
+        <button class="btn" type="button" id="x-itens">Planilha de itens</button>
+        <button class="btn ghost full" type="button" id="x-print">Imprimir / salvar PDF</button>
+      </div>
+      <p class="note">As planilhas saem em .csv e abrem direto no Excel ou Google Planilhas. A de inspeções tem uma linha por inspeção; a de itens tem uma linha por item respondido, boa para tabela dinâmica.</p>
+    </section>
+  </div>
+</main>
+
+<div class="bar" id="bar">
+  <div class="wrap">
+    <div class="prog"><span><b id="p-done">0</b> de <b id="p-total">0</b> itens respondidos</span><span id="p-nc"></span></div>
+    <div class="track"><i id="p-fill"></i></div>
+    <div class="msg" id="msg" role="status" hidden></div>
+    <div class="actions">
+      <button class="btn ghost" type="button" id="b-clear">Limpar</button>
+      <button class="btn" type="button" id="b-send">Enviar inspeção</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const EQUIP = {
+  compressor:{nome:"Compressor",itens:[
+    "Motor sem vazamento de óleo (cárter, juntas, retentores, bujão)",
+    "Unidade compressora sem vazamento de óleo (carcaça, separador ar/óleo)",
+    "Radiador / resfriador de óleo sem vazamentos",
+    "Tanque de combustível, tampa e respiro sem vazamento",
+    "Mangueiras e conexões de combustível e óleo sem trincas, ressecamento ou gotejamento",
+    "Filtros de óleo e combustível sem vazamento na vedação",
+    "Dreno de condensado direcionado a recipiente (não ao solo)",
+    "Bujões de dreno do chassi fechados",
+    "Mangueiras de ar e engates rápidos sem névoa de óleo",
+    "Nível de óleo correto (queda anormal indica vazamento)"]},
+  gerador:{nome:"Gerador",itens:[
+    "Motor diesel sem vazamento de óleo (cárter, juntas, retentores)",
+    "Tanque de combustível sem vazamento; tampa fechada e vedada",
+    "Linhas, bomba injetora e filtros de combustível sem gotejamento",
+    "Radiador, mangueiras e abraçadeiras sem vazamento de líquido de arrefecimento",
+    "Nível do líquido de arrefecimento correto",
+    "Escapamento sem resíduo oleoso ou fuligem úmida",
+    "Bateria sem vazamento de eletrólito e sem corrosão nos polos",
+    "Bacia interna do gerador (skid) sem acúmulo de líquidos",
+    "Dreno da bacia interna fechado",
+    "Nível de óleo do motor correto"]},
+  torre:{nome:"Torre de Iluminação",itens:[
+    "Motor / gerador acoplado sem vazamento de óleo",
+    "Tanque de combustível, tampa e respiro sem vazamento",
+    "Mangueiras e filtros de combustível sem gotejamento",
+    "Radiador e mangueiras sem vazamento de líquido de arrefecimento",
+    "Sistema hidráulico do mastro (se houver): cilindro, mangueiras e bomba sem vazamento",
+    "Guincho / cabo de elevação do mastro sem excesso de graxa escorrendo",
+    "Bateria sem vazamento de eletrólito",
+    "Bacia interna (chassi) sem acúmulo de líquidos e com dreno fechado",
+    "Estabilizadores apoiados sem danificar a bandeja ou manta de contenção"]},
+  pta:{nome:"PTA – Plataforma de Trabalho Aéreo",itens:[
+    "Reservatório hidráulico sem vazamento; tampa fechada; nível correto",
+    "Cilindros de elevação, lança e direção sem vazamento nas hastes e vedações",
+    "Mangueiras hidráulicas sem trincas, bolhas, abrasão ou gotejamento",
+    "Conexões e engates hidráulicos sem óleo escorrendo",
+    "Bomba e bloco de válvulas sem vazamento",
+    "Motores de tração / redutores sem vazamento de óleo",
+    "Motor a combustão (se diesel/GLP): sem vazamento de óleo ou combustível",
+    "Baterias (se elétrica): sem vazamento de eletrólito, tampas fechadas",
+    "Piso sob a PTA sem manchas após o período de estacionamento",
+    "Estabilizadores / patolas (se houver) sem vazamento hidráulico"]}
+};
+const GERAL = [
+  "Equipamento sobre bacia / bandeja de contenção ou manta absorvente",
+  "Bandeja de contenção íntegra, sem trincas, furos ou corrosão",
+  "Bandeja limpa, sem acúmulo de óleo, combustível ou água oleosa",
+  "Solo ao redor (raio de 2 m) sem manchas ou sinais de contaminação",
+  "Kit de mitigação ambiental no local e completo (mantas, cordões, pó absorvente, sacos, luvas, pá)",
+  "Recipientes de combustível / óleo identificados, fechados e sobre contenção",
+  "Resíduos contaminados (estopas, filtros, absorventes) em coletor identificado Classe I",
+  "Distância segura de bocas de lobo, canaletas e cursos d'água",
+  "Extintor de incêndio presente, lacrado e dentro da validade",
+  "Sinalização / isolamento da área do equipamento"
+];
+
+const API = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+const CHAVE = (window.CONFIG && window.CONFIG.CHAVE || "").trim();
+const K_DRAFT="vaz-rascunho-v1", K_LOCAL="vaz-inspecoes-v1", K_PEND="vaz-pendentes-v1";
+const $=id=>document.getElementById(id);
+let state=blank(), rows=[], filtro="";
+
+/* ---------- util ---------- */
+function blank(){return{data:today(),hor:"",turno:"",insp:"",local:"",equip:"",tag:"",lib:"",obs:"",resp:{}}}
+function today(off=0){const d=new Date();d.setDate(d.getDate()+off);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function uid(){try{return crypto.randomUUID()}catch(e){return Date.now().toString(36)+Math.random().toString(36).slice(2,10)}}
+function lsGet(k,def){try{const v=JSON.parse(localStorage.getItem(k)||"null");return v==null?def:v}catch(e){return def}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}
+function fmtData(s){if(!s)return"";const [y,m,d]=String(s).slice(0,10).split("-");return `${d}/${m}/${y}`}
+
+/* ---------- formulário ---------- */
+function itemsFor(){const out=GERAL.map((t,i)=>({code:"1."+(i+1),texto:t}));
+  if(state.equip)EQUIP[state.equip].itens.forEach((t,i)=>out.push({code:"2."+(i+1),texto:t}));return out}
+
+function renderItem(code,texto){
+  const r=state.resp[code]||{};
+  return `<div class="item ${r.v?"st-"+r.v:""}" data-code="${code}">
+    <p><span class="code">${code}</span><span>${esc(texto)}</span></p>
+    <div class="ans">${["C","NC","NA"].map(v=>`<button type="button" data-v="${v}" aria-pressed="${r.v===v}" aria-label="${code} ${v==="C"?"Conforme":v==="NC"?"Não conforme":"Não se aplica"}">${v}</button>`).join("")}</div>
+    ${r.v==="NC"?`<div class="ncbox">
+      <div class="field"><label for="d-${code}">Descrição do problema</label><textarea id="d-${code}" data-k="desc">${esc(r.desc)}</textarea></div>
+      <div class="field"><label for="a-${code}">Ação imediata tomada</label><textarea id="a-${code}" data-k="acao">${esc(r.acao)}</textarea></div>
+    </div>`:""}
+  </div>`}
+
+function renderLists(){
+  $("list-geral").innerHTML=GERAL.map((t,i)=>renderItem("1."+(i+1),t)).join("");
+  if(state.equip){
+    $("equip-title").textContent=EQUIP[state.equip].nome;$("quick2").hidden=false;
+    $("list-equip").innerHTML=EQUIP[state.equip].itens.map((t,i)=>renderItem("2."+(i+1),t)).join("");
+  }else{$("equip-title").textContent="Itens do equipamento";$("quick2").hidden=true;
+    $("list-equip").innerHTML='<div class="empty">Escolha o equipamento acima para ver os itens específicos.</div>'}
+  progress()}
+
+function setSeg(id,val){document.querySelectorAll("#"+id+" button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===val)))}
+function fillForm(){
+  $("f-data").value=state.data;$("f-hor").value=state.hor;$("f-insp").value=state.insp;$("f-local").value=state.local;
+  $("f-tag").value=state.tag;$("f-obs").value=state.obs;setSeg("f-turno",state.turno);setSeg("f-equip",state.equip);setSeg("f-lib",state.lib);renderLists()}
+
+function progress(){
+  const its=itemsFor();const done=its.filter(i=>state.resp[i.code]?.v).length;
+  const nc=its.filter(i=>state.resp[i.code]?.v==="NC").length;
+  $("p-done").textContent=done;$("p-total").textContent=state.equip?its.length:"—";
+  $("p-fill").style.width=(state.equip?done/its.length*100:0)+"%";
+  $("p-nc").textContent=nc?nc+" não conforme"+(nc>1?"s":""):"";$("p-nc").style.color=nc?"var(--nc)":"";
+  saveDraft()}
+
+function saveDraft(){lsSet(K_DRAFT,state)}
+function loadDraft(){const s=lsGet(K_DRAFT,null);if(s&&typeof s==="object")state=Object.assign(blank(),s)}
+function showMsg(t,kind){const m=$("msg");m.textContent=t;m.className="msg "+(kind||"");m.hidden=!t}
+
+document.querySelectorAll("#f-turno button").forEach(b=>b.onclick=()=>{state.turno=b.dataset.v;setSeg("f-turno",state.turno);saveDraft()});
+document.querySelectorAll("#f-lib button").forEach(b=>b.onclick=()=>{state.lib=b.dataset.v;setSeg("f-lib",state.lib);saveDraft()});
+document.querySelectorAll("#f-equip button").forEach(b=>b.onclick=()=>{
+  if(state.equip!==b.dataset.v){Object.keys(state.resp).forEach(k=>{if(k.startsWith("2."))delete state.resp[k]})}
+  state.equip=b.dataset.v;setSeg("f-equip",state.equip);renderLists()});
+[["f-data","data"],["f-hor","hor"],["f-insp","insp"],["f-local","local"],["f-tag","tag"],["f-obs","obs"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{state[k]=e.target.value;saveDraft()}));
+
+$("view-nova").addEventListener("click",e=>{
+  const all=e.target.closest("[data-all]");
+  if(all){const pre=all.dataset.all+".";itemsFor().forEach(i=>{if(i.code.startsWith(pre)&&!state.resp[i.code]?.v)(state.resp[i.code]=state.resp[i.code]||{}).v="C"});renderLists();return}
+  const b=e.target.closest(".ans button");if(!b)return;
+  const code=b.closest(".item").dataset.code;const r=state.resp[code]||(state.resp[code]={});
+  r.v=r.v===b.dataset.v?undefined:b.dataset.v;
+  b.closest(".item").outerHTML=renderItem(code,itemsFor().find(i=>i.code===code).texto);
+  if(r.v==="NC"){const d=$("d-"+code);if(d)d.focus()}
+  if(Object.values(state.resp).some(x=>x.v==="NC")&&!state.lib){state.lib="Não";setSeg("f-lib","Não")}
+  progress()});
+$("view-nova").addEventListener("input",e=>{
+  const k=e.target.dataset.k;if(!k)return;const code=e.target.closest(".item").dataset.code;
+  state.resp[code][k]=e.target.value;saveDraft()});
+
+let confirmClear=false;
+$("b-clear").onclick=()=>{
+  if(!confirmClear){confirmClear=true;$("b-clear").textContent="Confirmar?";setTimeout(()=>{confirmClear=false;$("b-clear").textContent="Limpar"},3000);return}
+  confirmClear=false;$("b-clear").textContent="Limpar";
+  state=Object.assign(blank(),{insp:state.insp,local:state.local});fillForm();showMsg("")};
+
+/* ---------- abas ---------- */
+function tab(which){
+  ["nova","hist","comp"].forEach(t=>{$("view-"+t).hidden=t!==which;$("tab-"+t).setAttribute("aria-selected",String(t===which))});
+  $("bar").hidden=which!=="nova";window.scrollTo(0,0);
+  if(which==="hist")renderHist();if(which==="comp")renderComp()}
+$("tab-nova").onclick=()=>tab("nova");$("tab-hist").onclick=()=>{tab("hist");loadRows()};$("tab-comp").onclick=()=>{tab("comp");loadRows()};
+
+/* ---------- dados: Google Planilhas (API) ou modo local ---------- */
+async function apiPost(doc){
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({chave:CHAVE,acao:"salvar",doc})});
+  const j=await r.json();if(!j.ok)throw new Error(j.erro||"erro");return j}
+async function apiList(){
+  const u=API+(API.includes("?")?"&":"?")+"acao=listar&chave="+encodeURIComponent(CHAVE)+"&t="+Date.now();
+  const r=await fetch(u);const j=await r.json();if(!j.ok)throw new Error(j.erro||"erro");return j.rows||[]}
+
+function pending(){return lsGet(K_PEND,[])}
+function showPending(){const n=pending().length;$("pend").hidden=!n;
+  $("pend").textContent=n?`${n} inspeção(ões) salva(s) neste aparelho aguardando conexão para envio. Elas serão enviadas automaticamente.`:""}
+async function flushPending(){
+  if(!API)return;let p=pending();if(!p.length)return;
+  const rest=[];for(const d of p){try{await apiPost(d)}catch(e){rest.push(d)}}
+  lsSet(K_PEND,rest);showPending();if(rest.length<p.length)loadRows()}
+
+let loading=null;
+async function loadRows(){
+  if(!API){rows=lsGet(K_LOCAL,[]).slice().sort((a,b)=>String(b.criadoEm).localeCompare(String(a.criadoEm)));refreshViews();return}
+  if(loading)return loading;
+  loading=(async()=>{
+    try{const r=await apiList();const pend=pending();
+      rows=pend.concat(r).sort((a,b)=>String(b.criadoEm).localeCompare(String(a.criadoEm)));
+      $("mode").textContent="Online";}
+    catch(e){if(!rows.length)$("hist").innerHTML='<div class="empty">Não foi possível carregar o histórico. Verifique a conexão e toque em Atualizar.</div>';$("mode").textContent="Sem conexão"}
+    finally{loading=null;refreshViews()}})();
+  return loading}
+function refreshViews(){if(!$("view-hist").hidden)renderHist();if(!$("view-comp").hidden)renderComp()}
+$("b-reload").onclick=()=>{flushPending();loadRows()};
+window.addEventListener("online",()=>{flushPending()});
+
+$("b-send").onclick=async()=>{
+  const its=itemsFor();
+  if(!state.equip)return showMsg("Escolha o equipamento.","err");
+  if(!state.insp.trim())return showMsg("Informe o nome do inspetor.","err");
+  if(!state.turno)return showMsg("Escolha o turno.","err");
+  const falta=its.filter(i=>!state.resp[i.code]?.v);
+  if(falta.length)return showMsg(`Faltam ${falta.length} item(ns): ${falta.slice(0,4).map(i=>i.code).join(", ")}${falta.length>4?"…":""}`,"err");
+  const semDesc=its.filter(i=>state.resp[i.code].v==="NC"&&!(state.resp[i.code].desc||"").trim());
+  if(semDesc.length)return showMsg("Descreva o problema dos itens NC: "+semDesc.map(i=>i.code).join(", "),"err");
+  if(!state.lib)return showMsg("Informe se o equipamento está liberado.","err");
+  const itens=its.map(i=>({codigo:i.code,texto:i.texto,resposta:state.resp[i.code].v,descricao:(state.resp[i.code].desc||"").trim(),acao:(state.resp[i.code].acao||"").trim()}));
+  const doc={id:uid(),data:state.data,turno:state.turno,inspetor:state.insp.trim(),local:state.local.trim(),equipamento:state.equip,
+    equipamentoNome:EQUIP[state.equip].nome,tag:state.tag.trim().toUpperCase(),horimetro:state.hor,liberado:state.lib,
+    observacoes:state.obs.trim(),totalNC:itens.filter(i=>i.resposta==="NC").length,itens,criadoEm:new Date().toISOString()};
+  $("b-send").disabled=true;$("b-send").textContent="Enviando…";
+  let ok="";
+  try{
+    if(API){
+      try{await apiPost(doc);ok="Inspeção enviada. Veja na aba Histórico."}
+      catch(e){const p=pending();p.push(doc);lsSet(K_PEND,p);showPending();
+        ok="Sem conexão: inspeção salva neste aparelho e será enviada automaticamente quando a internet voltar."}
+    }else{
+      const l=lsGet(K_LOCAL,[]);l.push(doc);if(!lsSet(K_LOCAL,l))throw new Error("storage");
+      ok="Inspeção salva neste aparelho (modo local)."}
+    state=Object.assign(blank(),{insp:state.insp,local:state.local});fillForm();window.scrollTo(0,0);
+    showMsg(ok,API&&ok.startsWith("Sem")?"warn":"ok");loadRows()}
+  catch(e){showMsg("Não foi possível salvar. O rascunho foi mantido; tente de novo.","err")}
+  finally{$("b-send").disabled=false;$("b-send").textContent="Enviar inspeção"}};
+
+/* ---------- histórico ---------- */
+function renderHist(){
+  const list=rows.filter(r=>!filtro?true:filtro==="nc"?r.totalNC>0:r.equipamento===filtro);
+  if(!list.length){$("hist").innerHTML=`<div class="empty">${rows.length?"Nenhuma inspeção neste filtro.":"Nenhuma inspeção registrada ainda. As inspeções enviadas na aba \"Nova inspeção\" aparecem aqui."}</div>`;return}
+  const pend=new Set(pending().map(p=>p.id));
+  $("hist").innerHTML=list.slice(0,300).map(r=>{const ncs=(r.itens||[]).filter(i=>i.resposta==="NC");
+    return `<details class="card"><summary>
+      <span class="t">${esc(r.equipamentoNome)} ${r.tag?`<span class="mono" style="font-size:.85rem">${esc(r.tag)}</span>`:""}</span>
+      <span class="pill ${pend.has(r.id)?"warn":r.liberado==="Sim"?"ok":"nc"}">${pend.has(r.id)?"Pendente":r.liberado==="Sim"?"Liberado":"Bloqueado"}</span>
+      <span class="meta">${fmtData(r.data)} · ${esc(r.turno)} · ${esc(r.inspetor)}${r.local?" · "+esc(r.local):""} · ${r.totalNC?`<b style="color:var(--nc)">${r.totalNC} NC</b>`:"sem NC"}</span>
+    </summary><div class="body">
+      ${r.horimetro?`<div>Horímetro: <span class="mono">${esc(r.horimetro)} h</span></div>`:""}
+      ${ncs.length?`<div><b>Não conformidades</b><ul>${ncs.map(i=>`<li><span class="mono">${esc(i.codigo)}</span> ${esc(i.texto)}<br><b>Problema:</b> ${esc(i.descricao)}${i.acao?`<br><b>Ação:</b> ${esc(i.acao)}`:""}</li>`).join("")}</ul></div>`:"<div>Todos os itens conformes ou não aplicáveis.</div>"}
+      ${r.observacoes?`<div><b>Observações:</b> ${esc(r.observacoes)}</div>`:""}
+    </div></details>`}).join("")}
+document.querySelectorAll("#h-filter button").forEach(b=>b.onclick=()=>{filtro=b.dataset.v;
+  document.querySelectorAll("#h-filter button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderHist()});
+
+/* ---------- compilar ---------- */
+function preset(v){
+  const ate=today();let de="";
+  if(v==="0")de=ate;else if(v==="7")de=today(-6);else if(v==="30")de=today(-29);else if(v==="mes")de=ate.slice(0,8)+"01";
+  $("c-de").value=de;$("c-ate").value=v==="tudo"?"":ate;
+  document.querySelectorAll("#c-preset button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===v)));renderComp()}
+document.querySelectorAll("#c-preset button").forEach(b=>b.onclick=()=>preset(b.dataset.v));
+["c-de","c-ate"].forEach(id=>$(id).addEventListener("input",()=>{document.querySelectorAll("#c-preset button").forEach(b=>b.setAttribute("aria-pressed","false"));renderComp()}));
+["c-eq","c-turno","c-busca"].forEach(id=>$(id).addEventListener("input",renderComp));
+
+function filtered(){
+  const de=$("c-de").value,ate=$("c-ate").value,eq=$("c-eq").value,tu=$("c-turno").value,q=$("c-busca").value.trim().toLowerCase();
+  return rows.filter(r=>{const d=String(r.data||"").slice(0,10);
+    if(de&&d<de)return false;if(ate&&d>ate)return false;if(eq&&r.equipamento!==eq)return false;if(tu&&r.turno!==tu)return false;
+    if(q&&![r.inspetor,r.local,r.tag].join(" ").toLowerCase().includes(q))return false;return true})}
+
+function rankHTML(list,max,empty){
+  if(!list.length)return `<li style="color:var(--muted)">${empty}</li>`;
+  return list.map(x=>`<li><span class="txt">${x.html}</span><span class="cnt">${x.n}</span><span class="b"><i style="width:${Math.max(3,x.n/max*100)}%"></i></span></li>`).join("")}
+
+function renderComp(){
+  const L=filtered();
+  const de=$("c-de").value,ate=$("c-ate").value;
+  $("print-range").textContent=`Período: ${de?fmtData(de):"início"} a ${ate?fmtData(ate):"hoje"} · ${L.length} inspeções · gerado em ${new Date().toLocaleString("pt-BR")}`;
+  $("k-tot").textContent=L.length;
+  $("k-eq").textContent=new Set(L.map(r=>r.equipamento+"|"+(r.tag||"?"))).size;
+  $("k-comnc").textContent=L.filter(r=>r.totalNC>0).length;
+  $("k-bloq").textContent=L.filter(r=>r.liberado!=="Sim").length;
+  // itens NC
+  const nc={};L.forEach(r=>(r.itens||[]).forEach(i=>{if(i.resposta!=="NC")return;
+    const key=(i.codigo.startsWith("1.")?"geral":r.equipamento)+"|"+i.codigo;
+    (nc[key]=nc[key]||{n:0,cod:i.codigo,txt:i.texto,eq:i.codigo.startsWith("1.")?"Geral":(EQUIP[r.equipamento]?.nome||r.equipamentoNome)}).n++}));
+  const ncL=Object.values(nc).sort((a,b)=>b.n-a.n).slice(0,10);
+  $("r-nc").innerHTML=rankHTML(ncL.map(x=>({n:x.n,html:`<span class="mono">${esc(x.eq)} ${esc(x.cod)}</span>${esc(x.txt)}`})),ncL[0]?.n||1,"Nenhuma não conformidade no período.");
+  // por equipamento
+  const eqc={};L.forEach(r=>{const k=r.equipamento;(eqc[k]=eqc[k]||{n:0,nc:0,nome:EQUIP[k]?.nome||r.equipamentoNome}).n++;if(r.totalNC>0)eqc[k].nc++});
+  const eqL=Object.values(eqc).sort((a,b)=>b.n-a.n);
+  $("r-eq").innerHTML=rankHTML(eqL.map(x=>({n:x.n,html:`${esc(x.nome)} <span style="color:var(--muted)">· ${x.nc} com NC</span>`})),eqL[0]?.n||1,"Nenhuma inspeção no período.");
+  // bloqueados
+  const bl=L.filter(r=>r.liberado!=="Sim").slice(0,15);
+  $("r-bloq").innerHTML=bl.length?bl.map(r=>`<li><span class="txt"><span class="mono">${fmtData(r.data)}</span> ${esc(r.equipamentoNome)} ${r.tag?`<span class="mono">${esc(r.tag)}</span>`:""} — ${esc(r.inspetor)}</span><span class="cnt" style="color:var(--nc)">${r.totalNC} NC</span></li>`).join(""):`<li style="color:var(--muted)">Nenhum equipamento bloqueado.</li>`}
+
+function csv(rowsArr){
+  const cell=v=>{const s=String(v??"");return /[;"\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+  return "﻿"+rowsArr.map(r=>r.map(cell).join(";")).join("\r\n")}
+function download(name,text){
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:"text/csv;charset=utf-8"}));
+  a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+function suf(){return ($("c-de").value||"inicio")+"_a_"+($("c-ate").value||today())}
+$("x-insp").onclick=()=>{
+  const L=filtered();
+  const head=["Data","Turno","Inspetor","Local","Equipamento","TAG","Horímetro","Liberado","Total NC","Itens NC","Observações","Registrado em","ID"];
+  download(`inspecoes_${suf()}.csv`,csv([head,...L.map(r=>[fmtData(r.data),r.turno,r.inspetor,r.local,r.equipamentoNome,r.tag,String(r.horimetro??"").replace(".",","),r.liberado,r.totalNC,
+    (r.itens||[]).filter(i=>i.resposta==="NC").map(i=>i.codigo+" "+i.texto+(i.descricao?" — "+i.descricao:"")).join(" | "),r.observacoes,new Date(r.criadoEm).toLocaleString("pt-BR"),r.id])]))};
+$("x-itens").onclick=()=>{
+  const L=filtered();const out=[["Data","Turno","Inspetor","Local","Equipamento","TAG","Código","Item","Resposta","Descrição do problema","Ação imediata","ID inspeção"]];
+  L.forEach(r=>(r.itens||[]).forEach(i=>out.push([fmtData(r.data),r.turno,r.inspetor,r.local,r.equipamentoNome,r.tag,i.codigo,i.texto,i.resposta,i.descricao,i.acao,r.id])));
+  download(`itens_${suf()}.csv`,csv(out))};
+$("x-print").onclick=()=>window.print();
+
+/* ---------- início ---------- */
+$("mode").textContent=API?"Conectando…":"Modo local";
+$("mode").title=API?"Dados salvos na planilha Google compartilhada":"Dados salvos apenas neste aparelho — configure a planilha para centralizar";
+loadDraft();fillForm();showPending();
+$("c-de").value=today(-29);$("c-ate").value=today();
+loadRows().then(flushPending);
+</script>
+</body>
+</html>
