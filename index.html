@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Controle de Vazamentos</title>
 <meta name="theme-color" content="#1f6b4f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vazamentos">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <script>
@@ -49,6 +56,8 @@ header.top .wrap{padding-block:12px 0;display:grid;gap:10px}
 h1{font-family:var(--display);font-size:1.6rem;letter-spacing:.01em;margin:0;line-height:1.1}
 h1 small{display:block;font-family:var(--body);font-size:.8rem;font-weight:500;opacity:.85;letter-spacing:.04em;text-transform:uppercase}
 .mode{font:600 .72rem var(--body);letter-spacing:.05em;text-transform:uppercase;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.18);white-space:nowrap}
+.hbtns{display:flex;gap:6px;align-items:center}
+.mode.inst{border:0;color:var(--accent);background:var(--accent-fg);cursor:pointer}
 .tabs{display:flex;gap:4px}
 .tabs button{flex:1;font:600 .95rem var(--body);padding:10px 4px;border:0;border-radius:8px 8px 0 0;background:transparent;color:inherit;opacity:.8;cursor:pointer}
 .tabs button[aria-selected="true"]{background:var(--bg);color:var(--fg);opacity:1}
@@ -152,7 +161,7 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
   <div class="wrap">
     <div class="hrow">
       <h1><small>Área Ambiental · Inspeção diária</small>Controle de Vazamentos</h1>
-      <span class="mode" id="mode" title=""></span>
+      <div class="hbtns"><button type="button" class="mode inst" id="b-inst" hidden>Instalar app</button><span class="mode" id="mode" title=""></span></div>
     </div>
     <div class="tabs" role="tablist">
       <button id="tab-nova" role="tab" aria-selected="true" aria-controls="view-nova">Nova inspeção</button>
@@ -592,6 +601,13 @@ $("x-itens").onclick=()=>{
   L.forEach(r=>(r.itens||[]).forEach(i=>out.push([fmtData(r.data),r.turno,r.inspetor,r.local,r.equipamentoNome,r.tag,i.codigo,i.texto,i.resposta,i.descricao,i.acao,r.id])));
   download(`itens_${suf()}.csv`,csv(out))};
 $("x-print").onclick=()=>window.print();
+
+/* ---------- app instalável ---------- */
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+let instEvt=null;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();instEvt=e;$("b-inst").hidden=false});
+window.addEventListener("appinstalled",()=>{instEvt=null;$("b-inst").hidden=true});
+$("b-inst").onclick=async()=>{if(!instEvt)return;instEvt.prompt();try{await instEvt.userChoice}catch(e){}instEvt=null;$("b-inst").hidden=true};
 
 /* ---------- início ---------- */
 $("mode").textContent=API?"Conectando…":"Modo local";
